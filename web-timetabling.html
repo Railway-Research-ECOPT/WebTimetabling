@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>Timetabling Demo</title>
+<link rel="stylesheet" href="bootstrap.min.css">
+<script src="jquery-3.3.1.min.js"></script>
+<script src="bootstrap.bundle.min.js"></script>
+<script src="vue.js"></script>
+<script src="glpk.js"></script>
+<script src="union-find.js"></script>
+<script src="axios.min.js"></script>
+<script src="vue-line-panel.js"></script>
+<style>
+body {
+	padding-top: 1em;
+}
+</style>
+</head>
+
+<body>
+	<div id="app">
+		<div class="container">
+			<ul class="nav nav-pills" id="tabList" role="tablist">
+				<li class="nav-item"><a id="data-tab" class="nav-link active"
+					data-toggle="tab" href="#data" aria-controls="data"
+					aria-selected="true">Data</a></li>
+				<li class="nav-item"><a id="control-tab" class="nav-link"
+					data-toggle="tab" href="#control" aria-controls="control"
+					aria-selected="false">Control</a></li>
+				<li class="nav-item"><a id="solution-tab" class="nav-link"
+					data-toggle="tab" href="#solution" aria-controls="control"
+					aria-selected="false">Solution</a></li>
+			</ul>
+			<div class="tab-content" id="tabContent">
+				<div class="tab-pane fade show active" id="data" role="tabpanel"
+					aria-labelledby="data-tab">
+					<div class="row">
+						<div class="col-6">
+							<h4>Model Settings</h4>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text"> <input type="checkbox"
+										v-model="cyclic_schedule">
+									</span>
+								</div>
+								<span class="input-group-text">Use a cyclic schedule of</span> <input
+									type="number" class="form-control" v-model="cyclic_period"
+									:disabled="!cyclic_schedule" min="0">
+								<div class="input-group-append">
+									<span class="input-group-text">minutes per period</span>
+								</div>
+							</div>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text"> <input type="checkbox"
+										v-model="allow_infeasible">
+									</span>
+								</div>
+								<span class="input-group-text">Allow infeasibility with a
+									penalty of</span> <input type="number" class="form-control"
+									v-model="infeasible_penalty" :disabled="!cyclic_schedule"
+									min="0">
+								<div class="input-group-append">
+									<span class="input-group-text">cost units</span>
+								</div>
+							</div>
+							<hr />
+							<h4>Tools</h4>
+							<button type="button" class="btn btn-primary" data-toggle="modal"
+								data-target="#line-add-dialog">Add Line</button>
+						</div>
+						<div class="col-6">
+							<h4>Add new event</h4>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text" id="new-event-span">Event
+										name:</span>
+								</div>
+								<input type="text" class="form-control" v-model="new_event_name"
+									aria-describedby="new-event-span">
+								<div class="input-group-append">
+									<button class="btn btn-primary" v-on:click="addEvent()">+</button>
+								</div>
+							</div>
+							<div class="alert alert-danger" v-if="new_event_error">The
+								event you try to add already exists. You can only add events
+								that do not exist yet.</div>
+							<hr />
+							<h4>Add new activity</h4>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text">From:</span>
+								</div>
+								<select class="form-control" v-model="from_event">
+									<option v-for="e in events" v-bind:value="e">{{e}}</option>
+								</select>
+								<div class="input-group-prepend">
+									<span class="input-group-text">To:</span>
+								</div>
+								<select class="form-control" v-model="to_event">
+									<option v-for="e in events" v-bind:value="e">{{e}}</option>
+								</select>
+							</div>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text">Lower Bound:</span>
+								</div>
+								<input type="number" class="form-control" v-model="lb" min="0">
+								<div class="input-group-prepend">
+									<span class="input-group-text">Upper Bound:</span>
+								</div>
+								<input type="number" class="form-control" v-model="ub" min="0">
+							</div>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text" id="new-activity-type-span">Type:</span>
+								</div>
+								<select class="form-control" v-model="new_activity_type">
+									<option value="drive">drive</option>
+									<option value="change">change</option>
+									<option value="headway">headway</option>
+									<option value="turnaround">turnaround</option>
+									<option value="wait">wait</option>
+									<option value="sync">sync</option>
+								</select>
+							</div>
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<span class="input-group-text">Weight:</span>
+								</div>
+								<input type="text" class="form-control"
+									v-model="new_activity_weight">
+								<button class="btn btn-primary" v-on:click="addConstraint()">+</button>
+							</div>
+						</div>
+					</div>
+					<hr />
+					<div class="row">
+						<div class="col-6">
+							<h2>Events</h2>
+							<ul>
+								<li v-for="(value,index) in events">{{value}}
+									<button class="badge badge-danger"
+										v-on:click="deleteEvent(index)">x</button>
+								</li>
+							</ul>
+						</div>
+						<div class="col-6">
+							<h2>Activities</h2>
+							<ul>
+								<li v-for="(value,index) in activities">{{value.lb}} &le;
+									{{value.to}} - {{value.from}} &le; {{value.ub}} (weight:
+									{{value.weight}}, type: {{value.type}})
+									<button class="badge badge-danger"
+										v-on:click="deleteConstraint(index)">x</button>
+								</li>
+							</ul>
+						</div>
+					</div>
+
+				</div>
+				<div class="tab-pane fade" id="control" role="tabpanel"
+					aria-labelledby="control-tab">
+					<div class="row">
+						<div class="col-6">
+							<h4>Model Management</h4>
+							<div>
+								<button class="btn btn-primary" v-on:click="saveData()">Save
+									Instance</button>
+								<button class="btn btn-primary" v-on:click="loadData()">Load
+									Instance</button>
+								<button class="btn btn-primary" v-on:click="saveModel()">Save
+									LP Model</button>
+								<input type="file" id="file_input" style="display: none"
+									v-on:change="readData()">
+							</div>
+
+						</div>
+						<div class="col-6">
+							<h4>Optimize the Schedule</h4>
+							<button class="btn btn-primary btn-block"
+								v-on:click="solveLocal()">Solve in Browser</button>
+						</div>
+					</div>
+				</div>
+				<div class="tab-pane fade" id="solution" role="tabpanel"
+					aria-labelledby="solution-tab">
+					<div class="row" v-if="solution != null">
+						<div class="col-3"></div>
+						<div class="col-6" v-if="solution.error == null">
+							<h4>Information</h4>
+							<div class="alert alert-success" role="alert">
+								A solution was found. <br /> The objective value (weighted
+								slack) of this solution is {{solution.objective}}. <br /> It
+								took {{solution.solveTime}} seconds to find this solution. <span
+									v-if="solution.relativeGap > 0">The relative gap of the
+									solution is {{solution.relativeGap}}</span>
+							</div>
+							<h4>Solution</h4>
+							<table class="table table-striped">
+								<thead>
+									<tr>
+										<td>Event</td>
+										<td>Time</td>
+									</tr>
+								</thead>
+								<tbody>
+									<tr v-for="event in events">
+										<td>{{event}}</td>
+										<td>{{solution.eventTimes[event]}}</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="col-6" v-else>
+							<div class="alert alert-danger" role="alert">
+								No valid solution was found. This is likely due to infeasibility
+								of the model. Change the model and try to solve it again! <span
+									v-if="solution.error != null">The reported error is:
+									{{solution.error}}</span>
+							</div>
+						</div>
+					</div>
+					<div class="row" v-else>
+						<div class="col-3"></div>
+						<div class="col-6">
+							<div class="alert alert-warning" role="alert">No solution
+								was computed yet. Solve the model in the "Control" tab.</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<line-dialog id="line-add-dialog" v-on:done="addLine">
+		</div>
+	</div>
+
+	<script src="web-timetabling.js"></script>
+</body>
+
+</html>
