@@ -4,14 +4,14 @@
 <head>
 <meta charset="utf-8">
 <title>Timetabling Demo</title>
-<link rel="stylesheet" href="bootstrap.min.css">
-<script src="jquery-3.3.1.min.js"></script>
-<script src="bootstrap.bundle.min.js"></script>
-<script src="vue.js"></script>
-<script src="glpk.js"></script>
-<script src="union-find.js"></script>
-<script src="axios.min.js"></script>
-<script src="vue-line-panel.js"></script>
+<link rel="stylesheet" href="/css/bootstrap.min.css">
+<script src="/js/jquery-3.3.1.min.js"></script>
+<script src="/js/bootstrap.bundle.min.js"></script>
+<script src="/js/vue.js"></script>
+<script src="/js/glpk.js"></script>
+<script src="/js/union-find.js"></script>
+<script src="/js/axios.min.js"></script>
+<script src="/js/vue-line-panel.js"></script>
 <style>
 body {
 	padding-top: 1em;
@@ -23,19 +23,16 @@ body {
 	<div id="app">
 		<div class="container">
 			<ul class="nav nav-pills" id="tabList" role="tablist">
-				<li class="nav-item"><a id="data-tab" class="nav-link active"
-					data-toggle="tab" href="#data" aria-controls="data"
-					aria-selected="true">Data</a></li>
-				<li class="nav-item"><a id="control-tab" class="nav-link"
-					data-toggle="tab" href="#control" aria-controls="control"
-					aria-selected="false">Control</a></li>
+				<li class="nav-item"><a id="model-tab" class="nav-link active"
+					data-toggle="tab" href="#model" aria-controls="model"
+					aria-selected="true">Model</a></li>
 				<li class="nav-item"><a id="solution-tab" class="nav-link"
 					data-toggle="tab" href="#solution" aria-controls="control"
 					aria-selected="false">Solution</a></li>
 			</ul>
 			<div class="tab-content" id="tabContent">
-				<div class="tab-pane fade show active" id="data" role="tabpanel"
-					aria-labelledby="data-tab">
+				<div class="tab-pane fade show active" id="model" role="tabpanel"
+					aria-labelledby="model-tab">
 					<div class="row">
 						<div class="col-6">
 							<h4>Model Settings</h4>
@@ -67,9 +64,27 @@ body {
 								</div>
 							</div>
 							<hr />
-							<h4>Tools</h4>
+							<h4>Controls</h4>
 							<button type="button" class="btn btn-primary" data-toggle="modal"
 								data-target="#line-add-dialog">Add Line</button>
+
+							<button class="btn btn-primary" v-on:click="loadData()">Load
+									Instance</button>
+
+							<div class="dropdown" style="display: inline-block">
+								<button class="btn btn-primary dropdown-toggle" type="button"
+									id="exportButton" data-toggle="dropdown" 
+									aria-haspopup="true" aria-expanded="false">Save</button>
+								<div class="dropdown-menu" aria-labelledby="exportButton">
+									<a class="dropdown-item" href="#" v-on:click="saveData()">Save Instance</a>
+									<a class="dropdown-item" href="#" v-on:click="saveModel()">Save LP Model</a>
+								</div>
+							</div>
+							
+							<hr />
+							
+							<button class="btn btn-primary btn-block"
+								v-on:click="solveLocal()">Solve in Browser</button>
 						</div>
 						<div class="col-6">
 							<h4>Add new event</h4>
@@ -161,30 +176,6 @@ body {
 					</div>
 
 				</div>
-				<div class="tab-pane fade" id="control" role="tabpanel"
-					aria-labelledby="control-tab">
-					<div class="row">
-						<div class="col-6">
-							<h4>Model Management</h4>
-							<div>
-								<button class="btn btn-primary" v-on:click="saveData()">Save
-									Instance</button>
-								<button class="btn btn-primary" v-on:click="loadData()">Load
-									Instance</button>
-								<button class="btn btn-primary" v-on:click="saveModel()">Save
-									LP Model</button>
-								<input type="file" id="file_input" style="display: none"
-									v-on:change="readData()">
-							</div>
-
-						</div>
-						<div class="col-6">
-							<h4>Optimize the Schedule</h4>
-							<button class="btn btn-primary btn-block"
-								v-on:click="solveLocal()">Solve in Browser</button>
-						</div>
-					</div>
-				</div>
 				<div class="tab-pane fade" id="solution" role="tabpanel"
 					aria-labelledby="solution-tab">
 					<div class="row" v-if="solution != null">
@@ -236,7 +227,7 @@ body {
 		</div>
 	</div>
 
-	<script src="web-timetabling.js"></script>
+	<script src="/js/web-timetabling.js"></script>
 </body>
 
 </html>
